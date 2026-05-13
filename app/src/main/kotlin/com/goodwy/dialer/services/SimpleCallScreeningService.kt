@@ -25,7 +25,9 @@ class SimpleCallScreeningService : CallScreeningService() {
             }
 
             number != null && isNumberBlocked(number) && baseConfig.blockingEnabled -> {
-                if (baseConfig.doNotBlockContactsAndRecent) {
+                if (config.isStealthBlockedNumber(number)) {
+                    respondToCall(callDetails, isBlocked = false)
+                } else if (baseConfig.doNotBlockContactsAndRecent) {
                     if (number in config.recentOutgoingNumbers) respondToCall(callDetails, isBlocked = false)
                     else {
                         val privateCursor = getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true)

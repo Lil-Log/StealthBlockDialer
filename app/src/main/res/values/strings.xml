@@ -32,6 +32,9 @@
     <string name="decline">Decline</string>
     <string name="decline_call">Decline call</string>
     <string name="unknown_caller">Unknown Caller</string>
+    <string name="stealth_blocked_call">Stealth blocked</string>
+    <string name="stealth_block">Stealth block</string>
+    <string name="normal_block">Block normally</string>
     <string name="is_calling">Is Calling…</string>
     <string name="dialing">Dialing…</string>
     <string name="call_ended">Call Ended</string>

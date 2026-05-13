@@ -26,6 +26,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.children
 import androidx.core.view.isVisible
 import com.goodwy.commons.dialogs.ConfirmationAdvancedDialog
+import androidx.appcompat.app.AlertDialog
 import com.goodwy.commons.extensions.*
 import com.goodwy.commons.helpers.*
 import com.goodwy.commons.models.SimpleListItem
@@ -1460,16 +1461,8 @@ class CallActivity : SimpleActivity() {
                 beVisible()
                 setText(R.string.block_number)
                 setOnClickListener {
-                    if (callContact != null) {
-                        val number = callContact!!.number
-                        val baseString = R.string.block_confirmation
-                        val question = String.format(resources.getString(baseString), number)
-
-                        ConfirmationAdvancedDialog(this@CallActivity, question, cancelOnTouchOutside = false) {
-                            if (it) {
-                                blockNumbers(number.normalizePhoneNumber())
-                            }
-                        }
+                    callContact?.let { contact ->
+                        askBlockType(contact.number)
                     }
                 }
             }
@@ -1482,9 +1475,68 @@ class CallActivity : SimpleActivity() {
         }
     }
 
-    private fun blockNumbers(number: String) {
+    private fun blockNumber(number: String, stealth: Boolean = false) {
         config.needRestart = true
-        if (addBlockedNumber(number)) endCall()
+        if (stealth) {
+            config.addStealthBlockedNumber(number)
+        } else {
+            config.removeStealthBlockedNumber(number)
+        }
+        addBlockedNumber(number)
+        endCall()
+    }
+
+    private fun askBlockType(number: String) {
+        val options = arrayOf(
+            getString(R.string.normal_block),
+            getString(R.string.stealth_block)
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.block_number)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> blockNumber(number, stealth = false)
+                    1 -> blockNumber(number, stealth = true)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun isStealthBlockedNumber(number: String?): Boolean {
+        return number?.let { config.isStealthBlockedNumber(it) } == true
+    }
+
+    private fun updateIncomingCallActions() {
+        val isStealthBlocked = isStealthBlockedNumber(callContact?.number)
+        if (binding.incomingCallHolder.isVisible && CallManager.getState() == Call.STATE_RINGING && isStealthBlocked) {
+            binding.apply {
+                arrayOf(
+                    callDecline, callDeclineLabel,
+                    callAccept, call_accept_label,
+                    callAcceptAndDecline,
+                    callDraggable, callDraggableBackground, callDraggableVertical,
+                    callLeftArrow, callRightArrow, callUpArrow, callDownArrow
+                ).forEach { it.beGone() }
+                callStatusLabel.text = getString(R.string.stealth_blocked_call)
+            }
+        } else if (binding.incomingCallHolder.isVisible) {
+            binding.apply {
+                callDecline.beVisible()
+                callDeclineLabel.beVisible()
+                callAccept.beVisible()
+                call_accept_label.beVisible()
+                callDraggable.beVisible()
+                callDraggableBackground.beVisible()
+                callDraggableVertical.beVisible()
+                callLeftArrow.beVisible()
+                callRightArrow.beVisible()
+                callUpArrow.beVisible()
+                callDownArrow.beVisible()
+                if (config.callBlockButton) callAcceptAndDecline.beVisible() else callAcceptAndDecline.beGone()
+            }
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -1536,6 +1588,7 @@ class CallActivity : SimpleActivity() {
                 val avatarRound = if (!isConference) contact.photoUri else ""
                 updateOtherPersonsInfo(avatarRound, isConference)
                 checkCalledSIMCard()
+                updateIncomingCallActions()
             }
         }
     }
@@ -1554,6 +1607,7 @@ class CallActivity : SimpleActivity() {
 
     private fun callRinging() {
         binding.incomingCallHolder.beVisible()
+        updateIncomingCallActions()
     }
 
     private fun callStarted() {

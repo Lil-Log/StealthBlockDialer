@@ -19,6 +19,7 @@ import com.goodwy.commons.helpers.isSPlus
 import com.goodwy.dialer.R
 import com.goodwy.dialer.activities.CallActivity
 import com.goodwy.dialer.extensions.audioManager
+import com.goodwy.dialer.extensions.config
 import com.goodwy.dialer.extensions.getCountryByNumber
 import com.goodwy.dialer.models.AudioRoute
 import com.goodwy.dialer.receivers.CallActionReceiver
@@ -30,6 +31,12 @@ class CallNotificationManager(private val context: Context) {
         private const val DECLINE_CALL_CODE = 1
         private const val MICROPHONE_CALL_CODE = 2
         private const val SPEAKER_CALL_CODE = 3
+    }
+
+    private fun isStealthBlocked(number: String?): Boolean {
+        return number?.normalizePhoneNumber()?.let { normalized ->
+            normalized.isNotBlank() && context.config.isStealthBlockedNumber(normalized)
+        } == true
     }
 
     private val notificationManager = context.notificationManager
@@ -108,6 +115,8 @@ class CallNotificationManager(private val context: Context) {
                 callerName += " - ${callContact.numberLabel}"
             }
 
+            val isStealthBlocked = isStealthBlocked(callContact.number)
+
             val callerNumberType = if (callContact.name == callContact.number) {
                 callContact.number.getCountryByNumber()
             } else callContact.numberLabel
@@ -131,9 +140,11 @@ class CallNotificationManager(private val context: Context) {
                 }
                 setText(R.id.notification_call_status, context.getString(contentTextId))
                 // Incoming call (accept/reject)
-                setVisibleIf(R.id.notification_actions_holder, callState == Call.STATE_RINGING)
-                setOnClickPendingIntent(R.id.notification_decline_call, declinePendingIntent)
-                setOnClickPendingIntent(R.id.notification_accept_call, acceptPendingIntent)
+                setVisibleIf(R.id.notification_actions_holder, callState == Call.STATE_RINGING && !isStealthBlocked)
+                if (!isStealthBlocked) {
+                    setOnClickPendingIntent(R.id.notification_decline_call, declinePendingIntent)
+                    setOnClickPendingIntent(R.id.notification_accept_call, acceptPendingIntent)
+                }
 
                 // Active call (microphone/speaker)
                 setVisibleIf(R.id.notification_actions_call_holder, callState != Call.STATE_RINGING)
@@ -268,6 +279,8 @@ class CallNotificationManager(private val context: Context) {
                     callerName += " - ${callContact.numberLabel}"
                 }
 
+                val isStealthBlocked = isStealthBlocked(callContact.number)
+
                 val icon: Icon? =
                     try {
                         if (callContactAvatar == null) {
@@ -288,23 +301,29 @@ class CallNotificationManager(private val context: Context) {
                     .setIcon(icon)
                     .build()
 
-                val style = if (callState == Call.STATE_RINGING) {
-                    Notification.CallStyle.forIncomingCall(person, declinePendingIntent, acceptPendingIntent)
-                } else {
-                    Notification.CallStyle.forOngoingCall(person, declinePendingIntent)
+                val style = when {
+                    callState == Call.STATE_RINGING && !isStealthBlocked -> Notification.CallStyle.forIncomingCall(person, declinePendingIntent, acceptPendingIntent)
+                    callState == Call.STATE_RINGING && isStealthBlocked -> null
+                    else -> Notification.CallStyle.forOngoingCall(person, declinePendingIntent)
                 }
 
                 val builder = Notification.Builder(context, channelId)
-                    .setFullScreenIntent(openAppPendingIntent, isHighPriority)
                     .setSmallIcon(R.drawable.ic_phone_vector)
                     .setContentIntent(openAppPendingIntent)
                     .setCategory(Notification.CATEGORY_CALL)
                     .setOngoing(true)
                     .setTimeoutAfter(-1)
-//                    .setUsesChronometer(callState == Call.STATE_ACTIVE)
                     .setChannelId(channelId)
-                    .setStyle(style)
                     .addPerson(person)
+
+                if (style != null) {
+                    builder.setStyle(style)
+                } else if (callState == Call.STATE_RINGING) {
+                    builder
+                        .setContentTitle(callerName)
+                        .setContentText(context.getString(R.string.stealth_blocked_call))
+                }
+                builder.setFullScreenIntent(openAppPendingIntent, isHighPriority)
 
                 if (callState == Call.STATE_ACTIVE) {
                     val connectTime = CallManager.getCallConnectTime()

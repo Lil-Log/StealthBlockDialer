@@ -12,6 +12,7 @@ import android.provider.ContactsContract
 import android.text.SpannableString
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.DrawableCompat
 import com.goodwy.commons.dialogs.CallConfirmationDialog
@@ -1328,27 +1329,47 @@ class CallHistoryActivity : SimpleActivity() {
 
     private fun askConfirmBlock() {
         if (isDefaultDialer()) {
-            val baseString = if (isNumberBlocked(currentRecentCall!!.phoneNumber, getBlockedNumbers())) {
-                R.string.unblock_confirmation
-            } else { R.string.block_confirmation }
-            val question = String.format(resources.getString(baseString), currentRecentCall!!.phoneNumber)
-
-            ConfirmationDialog(this, question) {
-                blockNumbers()
+            if (isNumberBlocked(currentRecentCall!!.phoneNumber, getBlockedNumbers())) {
+                val question = String.format(resources.getString(R.string.unblock_confirmation), currentRecentCall!!.phoneNumber)
+                ConfirmationDialog(this, question) {
+                    blockNumbers()
+                }
+            } else {
+                askBlockType(currentRecentCall!!.phoneNumber)
             }
         } else toast(R.string.default_phone_app_prompt, Toast.LENGTH_LONG)
     }
 
-    private fun blockNumbers() {
+    private fun askBlockType(number: String) {
+        val options = arrayOf(
+            getString(R.string.normal_block),
+            getString(R.string.stealth_block)
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.block_number)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> blockNumber(number, stealth = false)
+                    1 -> blockNumber(number, stealth = true)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun blockNumber(number: String, stealth: Boolean = false) {
         config.needUpdateRecents = true
         val red = resources.getColor(R.color.red_missed, theme)
         runOnUiThread {
-            if (isNumberBlocked(currentRecentCall!!.phoneNumber, getBlockedNumbers())) {
-                deleteBlockedNumber(currentRecentCall!!.phoneNumber)
+            if (isNumberBlocked(number, getBlockedNumbers())) {
+                deleteBlockedNumber(number)
+                config.removeStealthBlockedNumber(number)
                 binding.blockButton.text = getString(R.string.block_number)
                 binding.blockButton.setTextColor(red)
             } else {
-                addBlockedNumber(currentRecentCall!!.phoneNumber)
+                addBlockedNumber(number)
+                if (stealth) config.addStealthBlockedNumber(number)
                 binding.blockButton.text = getString(R.string.unblock_number)
                 binding.blockButton.setTextColor(getProperPrimaryColor())
             }

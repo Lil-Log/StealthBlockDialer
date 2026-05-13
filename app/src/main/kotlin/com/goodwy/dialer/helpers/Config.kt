@@ -307,6 +307,36 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(CALL_BLOCK_BUTTON, false)
         set(callBlockButton) = prefs.edit { putBoolean(CALL_BLOCK_BUTTON, callBlockButton) }
 
+    var stealthBlockedNumbers: MutableSet<String>
+        get() = prefs.getStringSet(STEALTH_BLOCKED_NUMBERS, hashSetOf())?.let { HashSet(it) } ?: hashSetOf()
+        set(stealthBlockedNumbers) = prefs.edit {
+            remove(STEALTH_BLOCKED_NUMBERS).putStringSet(STEALTH_BLOCKED_NUMBERS, HashSet(stealthBlockedNumbers))
+        }
+
+    fun isStealthBlockedNumber(number: String): Boolean {
+        return number.normalizePhoneNumber().let { normalizedNumber ->
+            normalizedNumber.isNotBlank() && stealthBlockedNumbers.contains(normalizedNumber)
+        }
+    }
+
+    fun addStealthBlockedNumber(number: String) {
+        val normalized = number.normalizePhoneNumber()
+        if (normalized.isBlank()) return
+        val numbers = stealthBlockedNumbers
+        if (numbers.add(normalized)) {
+            stealthBlockedNumbers = numbers
+        }
+    }
+
+    fun removeStealthBlockedNumber(number: String) {
+        val normalized = number.normalizePhoneNumber()
+        if (normalized.isBlank()) return
+        val numbers = stealthBlockedNumbers
+        if (numbers.remove(normalized)) {
+            stealthBlockedNumbers = numbers
+        }
+    }
+
     var keepCallsInPopUp: Boolean
         get() = prefs.getBoolean(KEEP_CALLS_IN_POPUP, false)
         set(keepCallsInPopUp) = prefs.edit { putBoolean(KEEP_CALLS_IN_POPUP, keepCallsInPopUp) }
