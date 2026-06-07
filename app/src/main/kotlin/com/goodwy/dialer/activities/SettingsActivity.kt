@@ -9,7 +9,6 @@ import android.os.Bundle
 import android.view.Menu
 import androidx.activity.result.contract.ActivityResultContracts
 import com.behaviorule.arturdumchev.library.pixels
-import com.goodwy.commons.activities.ManageBlockedNumbersActivity
 import com.goodwy.commons.dialogs.*
 import com.goodwy.commons.extensions.*
 import com.goodwy.commons.helpers.*
@@ -369,7 +368,7 @@ class SettingsActivity : SimpleActivity() {
         }
 
         settingsManageBlockedNumbersHolder.setOnClickListener {
-            Intent(this@SettingsActivity, ManageBlockedNumbersActivity::class.java).apply {
+            Intent(this@SettingsActivity, ManageStealthBlockedNumbersActivity::class.java).apply {
                 startActivity(this)
             }
         }

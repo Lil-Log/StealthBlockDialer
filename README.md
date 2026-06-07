@@ -2,6 +2,16 @@
 
 <img src="app/src/main/res/drawable/ic_launcher.png" width="120" alt="App icon"/>
 
+# What I need to edit(Use Ctrl + Shift + N) :
+C:\Users\bj441\StudioProjects\StealthBlockDialer\app\src\main\kotlin\com\goodwy\dialer\activities\CallActivity.kt : Find the word "acceptCall"
+C:\Users\bj441\StudioProjects\StealthBlockDialer\app\src\main\kotlin\com\goodwy\dialer\receivers\CallActionReceiver.kt : line 20
+SettingsActivity.kt line:372 이 intent를 startActivity() 안에 넣으면, 차단 전화번호 설정하는 화면이 열림. 이 화면 복제해서 Stealth 차단번호 관리 화면 만들 수 있을 듯.
+
+
+
+--------------------------
+
+
 # Right Phone
 <a href='https://play.google.com/store/apps/details?id=com.goodwy.dialer'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png' height=80/></a>
 </div>

@@ -157,6 +157,8 @@ detekt {
 }
 
 dependencies {
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.runtime)
     implementation(libs.indicator.fast.scroll)
     implementation(libs.autofit.text.view)
     implementation(libs.kotlinx.serialization.json)
