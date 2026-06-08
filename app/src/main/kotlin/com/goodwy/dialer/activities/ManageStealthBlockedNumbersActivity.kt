@@ -1,77 +1,49 @@
-그냥 니가 UI 기초부터 배워서 만들어라. ManageBlcoekdNumbersScreen.kt 복제할 생각 말고.
-
-/* package com.goodwy.dialer.activities
+package com.goodwy.dialer.activities
 
 import android.app.Application
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
+import android.telephony.PhoneNumberUtils
 import android.widget.Toast
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallTopAppBar
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.goodwy.commons.R
 import com.goodwy.commons.activities.BaseSimpleActivity
-import com.goodwy.commons.compose.alert_dialog.rememberAlertDialogState
 import com.goodwy.commons.compose.extensions.enableEdgeToEdgeSimple
-import com.goodwy.commons.compose.extensions.onEventValue
-import com.goodwy.commons.compose.screens.ManageBlockedNumbersScreen
 import com.goodwy.commons.compose.theme.AppThemeSurface
-import com.goodwy.commons.dialogs.AddOrEditBlockedNumberAlertDialog
-import com.goodwy.commons.dialogs.ExportBlockedNumbersDialog
-import com.goodwy.commons.dialogs.RadioGroupAlertDialog
-import com.goodwy.commons.extensions.*
-import com.goodwy.commons.helpers.*
-import com.goodwy.commons.models.BlockedNumber
-import com.goodwy.commons.models.RadioItem
-import java.io.FileOutputStream
-import java.io.OutputStream
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
+import com.goodwy.commons.helpers.APP_ICON_IDS
+import com.goodwy.commons.helpers.APP_LAUNCHER_NAME
+import com.goodwy.dialer.R
+import com.goodwy.dialer.helpers.StealthBlockedNumbersRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class ManageStealthBlockedNumbersActivity : BaseSimpleActivity() {
-    companion object {
-        const val SET_DEFAULT_CALLER_ID = "SET_DEFAULT_CALLER_ID"
-    }
-
-    private val config by lazy { baseConfig }
-
-    private val blockedNumberMimeTypes = buildList {
-        add("text/plain")
-        if (!isQPlus()) {
-            add("application/octet-stream")
-        }
-    }.toTypedArray()
-
-    private val openDocument = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            tryImportBlockedNumbersFromFile(uri)
-        }
-    }
-
-    private val createDocument = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain")
-    ) { uri ->
-        if (uri != null) {
-            val outputStream = contentResolver.openOutputStream(uri)
-            exportBlockedNumbersTo(outputStream)
-        }
-    }
+    private val stealthViewModel by viewModels<StealthBlockedNumbersViewModel>()
 
     override fun getAppIconIDs() = intent.getIntegerArrayListExtra(APP_ICON_IDS) ?: ArrayList()
 
@@ -79,294 +51,158 @@ class ManageStealthBlockedNumbersActivity : BaseSimpleActivity() {
 
     override fun getRepositoryName() = null
 
-    private val manageBlockedNumbersViewModel by viewModels<ManageBlockedNumbersViewModel>()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        if (intent.action == SET_DEFAULT_CALLER_ID) {
-            maybeSetDefaultCallerIdApp()
-        }
-
         enableEdgeToEdgeSimple()
+
         setContent {
-            val context = LocalContext.current
-            val blockedNumbers by manageBlockedNumbersViewModel.blockedNumbers.collectAsStateWithLifecycle()
-            LaunchedEffect(blockedNumbers) {
-                if (blockedNumbers?.any { blockedNumber -> blockedNumber.number.isBlockedNumberPattern() } == true) {
-                    maybeSetDefaultCallerIdApp()
-                }
-            }
-            val isBlockingHiddenNumbers by config.isBlockingHiddenNumbers.collectAsStateWithLifecycle(initialValue = config.blockHiddenNumbers)
-            val isBlockingUnknownNumbers by config.isBlockingUnknownNumbers.collectAsStateWithLifecycle(initialValue = config.blockUnknownNumbers)
-            val showCheckmarksOnSwitches by config.showCheckmarksOnSwitchesFlow.collectAsStateWithLifecycle(initialValue = config.showCheckmarksOnSwitches)
-            val isTopAppBarColorIcon by config.isTopAppBarColorIcon.collectAsStateWithLifecycle(initialValue = config.topAppBarColorIcon)
-            val isTopAppBarColorTitle by config.isTopAppBarColorTitle.collectAsStateWithLifecycle(initialValue = config.topAppBarColorTitle)
-            val isBlockingType by config.isBlockingType.collectAsStateWithLifecycle(initialValue = config.blockingType)
-            val isBlockingEnabled by config.isBlockingEnabled.collectAsStateWithLifecycle(initialValue = config.blockingEnabled)
-            val isDoNotBlockContactsAndRecent by config.isDoNotBlockContactsAndRecent.collectAsStateWithLifecycle(initialValue = config.doNotBlockContactsAndRecent)
-            val prefix = appPrefix()
-            val dialer = if (isNewApp()) "goodwy.phone" else "goodwy.dialer"
-            val isDialer = remember {
-                config.appId.startsWith(prefix + dialer)
-            }
-            val isDefaultDialer: Boolean = onEventValue {
-                context.isDefaultDialer()
-            }
-
+            val stealthNumbers by stealthViewModel.stealthNumbers.collectAsStateWithLifecycle()
             AppThemeSurface {
-                var clickedBlockedNumber by remember { mutableStateOf<BlockedNumber?>(null) }
-                val addBlockedNumberDialogState = rememberAlertDialogState()
-
-                addBlockedNumberDialogState.DialogMember {
-                    AddOrEditBlockedNumberAlertDialog(
-                        alertDialogState = addBlockedNumberDialogState,
-                        blockedNumber = clickedBlockedNumber,
-                        deleteBlockedNumber = { blockedNumber ->
-                            deleteBlockedNumber(blockedNumber)
-                            updateBlockedNumbers()
-                        }
-                    ) { blockedNumber ->
-                        addBlockedNumber(blockedNumber)
-                        clickedBlockedNumber = null
-                        updateBlockedNumbers()
-                    }
-                }
-
-                val blockingTypeDialogState = rememberAlertDialogState()
-
-                blockingTypeDialogState.DialogMember {
-                    RadioGroupAlertDialog(
-                        alertDialogState = blockingTypeDialogState,
-                        items = if (isQPlus()) {
-                            listOf(
-                                RadioItem(BLOCKING_TYPE_REJECT, stringResource(id = com.goodwy.strings.R.string.blocking_type_reject)),
-                                RadioItem(BLOCKING_TYPE_DO_NOT_REJECT, stringResource(id = com.goodwy.strings.R.string.blocking_type_do_not_reject)),
-                                RadioItem(BLOCKING_TYPE_SILENCE, stringResource(id = com.goodwy.strings.R.string.blocking_type_silence)),
-                            ).toImmutableList()
-                        } else {
-                            listOf(
-                                RadioItem(BLOCKING_TYPE_REJECT, stringResource(id = com.goodwy.strings.R.string.blocking_type_reject)),
-                                RadioItem(BLOCKING_TYPE_DO_NOT_REJECT, stringResource(id = com.goodwy.strings.R.string.blocking_type_do_not_reject)),
-                            ).toImmutableList()
-                        },
-                        selectedItemId = isBlockingType,
-                        titleId = com.goodwy.strings.R.string.blocking_type,
-                        cancelCallback = {}
-                    ) { item ->
-                        config.blockingType = item.toInt()
-                    }
-                }
-
-                ManageBlockedNumbersScreen(
-                    goBack = ::finish,
-                    onAdd = {
-                        clickedBlockedNumber = null
-                        addBlockedNumberDialogState.show()
-                    },
-                    onImportBlockedNumbers = ::tryImportBlockedNumbers,
-                    onExportBlockedNumbers = ::tryExportBlockedNumbers,
-                    setAsDefault = ::maybeSetDefaultCallerIdApp,
-                    isTopAppBarColorIcon = isTopAppBarColorIcon,
-                    isTopAppBarColorTitle = isTopAppBarColorTitle,
-                    isDialer = isDialer,
-                    hasGivenPermissionToBlock = isDefaultDialer,
-                    isBlockUnknownSelected = isBlockingUnknownNumbers,
-                    showCheckmarksOnSwitches = showCheckmarksOnSwitches,
-                    onBlockUnknownSelectedChange = { isChecked ->
-                        config.blockUnknownNumbers = isChecked
-                        onCheckedSetCallerIdAsDefault(isChecked)
-                    },
-                    isHiddenSelected = isBlockingHiddenNumbers,
-                    onHiddenSelectedChange = { isChecked ->
-                        config.blockHiddenNumbers = isChecked
-                        onCheckedSetCallerIdAsDefault(isChecked)
-                    },
-                    blockedNumbers = blockedNumbers,
-                    onDelete = { selectedKeys ->
-                        deleteBlockedNumbers(blockedNumbers, selectedKeys)
-                    },
-                    onEdit = { blockedNumber ->
-                        clickedBlockedNumber = blockedNumber
-                        addBlockedNumberDialogState.show()
-                    },
-                    onCopy = { blockedNumber ->
-                        copyToClipboard(blockedNumber.number)
-                    },
-                    isBlockingType = isBlockingType,
-                    onBlockingType = {
-                        blockingTypeDialogState.show()
-                    },
-                    isBlockingEnabled = isBlockingEnabled,
-                    onBlockingEnabledChange = { isChecked ->
-                        config.blockingEnabled = isChecked
-                        onCheckedSetCallerIdAsDefault(isChecked)
-                    },
-                    isDoNotBlockContactsAndRecent = isDoNotBlockContactsAndRecent,
-                    onDoNotBlockContactsAndRecentChange = { isChecked ->
-                        config.doNotBlockContactsAndRecent = isChecked
-                        onCheckedSetCallerIdAsDefault(isChecked)
-                    },
+                StealthBlockedNumbersScreen(
+                    stealthNumbers = stealthNumbers,
+                    onAddStealthNumber = { stealthViewModel.addStealthNumber(it) },
+                    onRemoveStealthNumber = { stealthViewModel.removeStealthNumber(it) }
                 )
             }
         }
     }
 
-    private fun deleteBlockedNumbers(
-        blockedNumbers: ImmutableList<BlockedNumber>?,
-        selectedKeys: Set<Long>
-    ) {
-        if (blockedNumbers.isNullOrEmpty()) return
-        blockedNumbers.filter { blockedNumber -> selectedKeys.contains(blockedNumber.id) }
-            .forEach { blockedNumber ->
-                deleteBlockedNumber(blockedNumber.number)
-            }
-        manageBlockedNumbersViewModel.updateBlockedNumbers()
-    }
-
-    private fun tryImportBlockedNumbers() {
-        try {
-            openDocument.launch(blockedNumberMimeTypes)
-        } catch (_: ActivityNotFoundException) {
-            toast(R.string.system_service_disabled, Toast.LENGTH_LONG)
-        } catch (e: Exception) {
-            showErrorToast(e)
-        }
-    }
-
-    private fun tryImportBlockedNumbersFromFile(uri: Uri) {
-        when (uri.scheme) {
-            "file" -> importBlockedNumbers(uri.path!!)
-            "content" -> {
-                val tempFile = getTempFile("blocked", "blocked_numbers.txt")
-                if (tempFile == null) {
-                    toast(R.string.unknown_error_occurred)
-                    return
-                }
-
-                try {
-                    val inputStream = contentResolver.openInputStream(uri)
-                    val out = FileOutputStream(tempFile)
-                    inputStream!!.copyTo(out)
-                    importBlockedNumbers(tempFile.absolutePath)
-                } catch (e: Exception) {
-                    showErrorToast(e)
-                }
-            }
-
-            else -> toast(R.string.invalid_file_format)
-        }
-    }
-
-    private fun importBlockedNumbers(path: String) {
-        ensureBackgroundThread {
-            val result = BlockedNumbersImporter(this).importBlockedNumbers(path)
-            toast(
-                when (result) {
-                    BlockedNumbersImporter.ImportResult.IMPORT_OK -> R.string.importing_successful
-                    BlockedNumbersImporter.ImportResult.IMPORT_FAIL -> R.string.no_items_found
-                }
-            )
-            updateBlockedNumbers()
-        }
-    }
-
-    private fun updateBlockedNumbers() {
-        manageBlockedNumbersViewModel.updateBlockedNumbers()
-    }
-
-    private fun onCheckedSetCallerIdAsDefault(isChecked: Boolean) {
-        if (isChecked) {
-            maybeSetDefaultCallerIdApp()
-            handlePermission(PERMISSION_READ_CONTACTS) {
-                if (!it) toast(R.string.no_contacts_permission)
-            }
-        }
-    }
-
-    private fun maybeSetDefaultCallerIdApp() {
-        val prefix = appPrefix()
-        if (isQPlus() && baseConfig.appId.startsWith(prefix + "goodwy.dialer")) {
-            setDefaultCallerIdApp()
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
-        super.onActivityResult(requestCode, resultCode, resultData)
-        when {
-            requestCode == REQUEST_CODE_SET_DEFAULT_DIALER && isDefaultDialer() -> {
-                updateBlockedNumbers()
-            }
-
-            requestCode == REQUEST_CODE_SET_DEFAULT_CALLER_ID && resultCode != RESULT_OK -> {
-                toast(R.string.must_make_default_caller_id_app, length = Toast.LENGTH_LONG)
-                baseConfig.blockingEnabled = false
-                baseConfig.blockUnknownNumbers = false
-                baseConfig.blockHiddenNumbers = false
-                intent.action = null
-            }
-
-            intent.action == SET_DEFAULT_CALLER_ID && resultCode == RESULT_OK -> {
-                baseConfig.blockingEnabled = true
-            }
-        }
-    }
-
-    private fun exportBlockedNumbersTo(outputStream: OutputStream?) {
-        ensureBackgroundThread {
-            val blockedNumbers = getBlockedNumbers()
-            if (blockedNumbers.isEmpty()) {
-                toast(R.string.no_entries_for_exporting)
-            } else {
-                BlockedNumbersExporter.exportBlockedNumbers(blockedNumbers, outputStream) {
-                    toast(
-                        when (it) {
-                            ExportResult.EXPORT_OK -> R.string.exporting_successful
-                            else -> R.string.exporting_failed
-                        }
-                    )
-                }
-            }
-        }
-    }
-
-    private fun tryExportBlockedNumbers() {
-        ExportBlockedNumbersDialog(
-            activity = this,
-            path = baseConfig.lastBlockedNumbersExportPath,
-            hidePath = true
-        ) { file ->
-            try {
-                createDocument.launch(file.name)
-            } catch (_: ActivityNotFoundException) {
-                toast(R.string.system_service_disabled, Toast.LENGTH_LONG)
-            } catch (e: Exception) {
-                showErrorToast(e)
-            }
-        }
-    }
-
-    internal class ManageBlockedNumbersViewModel(
-        private val application: Application
-    ) : AndroidViewModel(application) {
-
-
-        private val _blockedNumbers: MutableStateFlow<ImmutableList<BlockedNumber>?> = MutableStateFlow(null)
-        val blockedNumbers = _blockedNumbers.asStateFlow()
+    internal class StealthBlockedNumbersViewModel(application: Application) : AndroidViewModel(application) {
+        private val _stealthNumbers = MutableStateFlow<List<String>>(emptyList())
+        val stealthNumbers = _stealthNumbers.asStateFlow()
 
         init {
-            updateBlockedNumbers()
+            updateStealthNumbers()
         }
 
-        fun updateBlockedNumbers() {
-            viewModelScope.launch {
-                withContext(Dispatchers.IO) {
-                    application.getBlockedNumbersWithContact { list ->
-                        _blockedNumbers.update { list.toImmutableList() }
+        fun addStealthNumber(number: String) {
+            viewModelScope.launch(Dispatchers.IO) {
+                StealthBlockedNumbersRepository.addStealthBlockedNumber(getApplication(), number)
+                updateStealthNumbers()
+            }
+        }
+
+        fun removeStealthNumber(number: String) {
+            viewModelScope.launch(Dispatchers.IO) {
+                StealthBlockedNumbersRepository.removeStealthBlockedNumber(getApplication(), number)
+                updateStealthNumbers()
+            }
+        }
+
+        private fun updateStealthNumbers() {
+            viewModelScope.launch(Dispatchers.IO) {
+                _stealthNumbers.value = StealthBlockedNumbersRepository.getStealthBlockedNumbers(getApplication())
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StealthBlockedNumbersScreen(
+    stealthNumbers: List<String>,
+    onAddStealthNumber: (String) -> Unit,
+    onRemoveStealthNumber: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var inputValue by rememberSaveable { mutableStateOf("") }
+    var errorText by rememberSaveable { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        SmallTopAppBar(title = { Text(stringResource(R.string.stealth_blocked_numbers_title)) })
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = inputValue,
+                onValueChange = {
+                    inputValue = it
+                    if (errorText != null) errorText = null
+                },
+                modifier = Modifier.weight(1f),
+                label = { Text(stringResource(R.string.add_stealth_blocked_number_hint)) },
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = {
+                    val normalized = PhoneNumberUtils.normalizeNumber(inputValue.trim())
+                    when {
+                        normalized.isBlank() -> errorText = stringResource(R.string.stealth_blocked_number_invalid)
+                        stealthNumbers.contains(normalized) -> errorText = stringResource(R.string.stealth_blocked_number_duplicate)
+                        else -> {
+                            onAddStealthNumber(normalized)
+                            inputValue = ""
+                            Toast.makeText(context, stringResource(R.string.stealth_blocked_number_added), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            ) {
+                Icon(imageVector = Icons.Rounded.Add, contentDescription = stringResource(R.string.add_button))
+            }
+        }
+
+        if (!errorText.isNullOrBlank()) {
+            Text(
+                text = errorText!!,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = stringResource(R.string.stealth_blocked_numbers_list_label),
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (stealthNumbers.isEmpty()) {
+            Text(
+                text = stringResource(R.string.stealth_blocked_numbers_empty),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(stealthNumbers, key = { it }) { number ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = number,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            IconButton(onClick = {
+                                onRemoveStealthNumber(number)
+                                Toast.makeText(context, stringResource(R.string.stealth_blocked_number_removed), Toast.LENGTH_SHORT).show()
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = stringResource(R.string.remove_stealth_blocked_number)
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
- */

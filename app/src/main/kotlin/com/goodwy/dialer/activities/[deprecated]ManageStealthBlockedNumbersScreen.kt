@@ -1,4 +1,4 @@
-그냥 니가 UI 기초부터 배워서 만들어라. ManageBlcoekdNumbersScreen.kt 복제할 생각 말고.
+// 그냥 니가 UI 기초부터 배워서 만들어라. ManageBlcoekdNumbersScreen.kt 복제할 생각 말고.
 
 /* @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3Api::class)
 

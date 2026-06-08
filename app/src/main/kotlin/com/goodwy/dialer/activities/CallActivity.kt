@@ -30,6 +30,7 @@ import com.goodwy.commons.extensions.*
 import com.goodwy.commons.helpers.*
 import com.goodwy.commons.models.SimpleListItem
 import com.goodwy.dialer.R
+import com.goodwy.dialer.helpers.StealthBlockedNumbersRepository
 import com.goodwy.dialer.databinding.ActivityCallBinding
 import com.goodwy.dialer.dialogs.ChangeTextDialog
 import com.goodwy.dialer.extensions.*
@@ -402,6 +403,7 @@ class CallActivity : SimpleActivity() {
                 }
 
                 callAccept.setOnClickListener {
+                    
                     acceptCall()
                 }
             }
@@ -1307,7 +1309,7 @@ class CallActivity : SimpleActivity() {
 
     private fun getContactNameOrNumber(contact: CallContact): String {
         return contact.name.ifEmpty {
-            contact.number.ifEmpty {
+            contact.number.ifEmpty { 
                 getString(R.string.unknown_caller)
             }
         }
@@ -1435,6 +1437,7 @@ class CallActivity : SimpleActivity() {
                     }
 
 
+                    
                     callDecline.beVisible()
                     callDecline.setOnClickListener {
                         endCall()

@@ -182,6 +182,13 @@
         </activity>
 
         <activity
+            android:name=".activities.ManageStealthBlockedNumbersActivity"
+            android:configChanges="orientation"
+            android:exported="false"
+            android:label="@string/stealth_blocked_numbers_title"
+            android:parentActivityName=".activities.SettingsActivity" />
+
+        <activity
             android:name=".activities.SettingsDialpadActivity"
             android:configChanges="orientation"
             android:exported="true"

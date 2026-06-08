@@ -120,6 +120,7 @@ class SettingsActivity : SimpleActivity() {
         setupSimCardColorList()
 
         setupManageBlockedNumbers()
+        setupManageStealthBlockedNumbers()
         setupUseSpeechToText()
         setupChangeDateTimeFormat()
         setupFormatPhoneNumbers()
@@ -368,6 +369,17 @@ class SettingsActivity : SimpleActivity() {
         }
 
         settingsManageBlockedNumbersHolder.setOnClickListener {
+            Intent(this@SettingsActivity, ManageBlockedNumbersActivity::class.java).apply {
+                startActivity(this)
+            }
+        }
+    }
+
+    private fun setupManageStealthBlockedNumbers() = binding.apply {
+        val stealthBlockedNumbers = StealthBlockedNumbersRepository.getStealthBlockedNumbers(baseContext)
+        settingsManageStealthBlockedNumbersCount.text = stealthBlockedNumbers.size.toString()
+
+        settingsManageStealthBlockedNumbersHolder.setOnClickListener {
             Intent(this@SettingsActivity, ManageStealthBlockedNumbersActivity::class.java).apply {
                 startActivity(this)
             }

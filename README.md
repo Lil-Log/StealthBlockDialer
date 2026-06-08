@@ -7,7 +7,10 @@ C:\Users\bj441\StudioProjects\StealthBlockDialer\app\src\main\kotlin\com\goodwy\
 C:\Users\bj441\StudioProjects\StealthBlockDialer\app\src\main\kotlin\com\goodwy\dialer\receivers\CallActionReceiver.kt : line 20
 SettingsActivity.kt line:372 이 intent를 startActivity() 안에 넣으면, 차단 전화번호 설정하는 화면이 열림. 이 화면 복제해서 Stealth 차단번호 관리 화면 만들 수 있을 듯.
 
-
+AI Prompt: Make a Stealth Block numbers manage screen that meets the following:
+1. Stealth number add feature where a user inputs a phone number and presses a plus button, that number is now registered as a stealth-blocked number.
+2. List of stealth blocked numbers.
+p.s. stealth blocked nubmers are different from regular blocked numbers, which means they have to use seperate storage.
 
 --------------------------
 

@@ -91,4 +91,15 @@
     <string name="faq_2_text">Due to system restrictions, emergency calls can only be made through your system\'s default dialer or phone app. To ensure emergency calls work properly, you need to keep the system app installed and enabled.</string>
     <string name="faq_3_title">Why are some of my contacts missing from the app?</string>
     <string name="faq_3_text">Fossify Phone only displays contacts that have a phone number associated with them. Contacts without a phone number are not shown in the app.</string>
+
+    <string name="stealth_blocked_numbers_title">Stealth Blocked Numbers</string>
+    <string name="add_stealth_blocked_number_hint">Enter number</string>
+    <string name="stealth_blocked_number_invalid">Enter a valid number</string>
+    <string name="stealth_blocked_number_duplicate">That number is already added</string>
+    <string name="stealth_blocked_number_added">Stealth blocked number added</string>
+    <string name="stealth_blocked_numbers_list_label">Stealth blocked numbers</string>
+    <string name="stealth_blocked_numbers_empty">No stealth blocked numbers added yet.</string>
+    <string name="remove_stealth_blocked_number">Remove stealth blocked number</string>
+    <string name="stealth_blocked_number_removed">Stealth blocked number removed</string>
+    <string name="add_button">Add</string>
 </resources>
