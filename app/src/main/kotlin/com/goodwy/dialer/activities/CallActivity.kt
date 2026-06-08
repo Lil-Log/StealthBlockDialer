@@ -12,6 +12,7 @@ import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.media.AudioManager
 import android.net.Uri
+import android.telephony.PhoneNumberUtils
 import android.os.*
 import android.telecom.Call
 import android.text.Spannable
@@ -1416,44 +1417,80 @@ class CallActivity : SimpleActivity() {
                 runOnUiThread {
                     binding.onHoldCallerName.text = getContactNameOrNumber(contact)
                 }
-            }
 
-            // A second call has been received but not yet accepted
-            if (call.getStateCompat() == Call.REJECT_REASON_UNWANTED) {
-                binding.apply {
-                    ongoingCallHolder.beGone()
-                    incomingCallHolder.beVisible()
-                    callStatusLabel.text = getString(R.string.is_calling)
-                    RxAnimation.from(binding.callStatusLabel)
-                        .shake()
-                        .subscribe()
+                // A second call has been received but not yet accepted
+                if (call.getStateCompat() == Call.REJECT_REASON_UNWANTED) {
+                    // Determine number and stealth/unknown status before showing accept/decline
+                    try {
+                        val handle = call.details?.handle?.toString()
+                        val number = if (handle != null && handle.startsWith("tel:")) Uri.decode(handle).substringAfter("tel:") else ""
+                        val normalizedNumber = try { PhoneNumberUtils.normalizeNumber(number) } catch (_: Exception) { number }
+                        val stealthList = StealthBlockedNumbersRepository.getStealthBlockedNumbers(applicationContext)
+                        val isStealth = stealthList.any { try { PhoneNumberUtils.normalizeNumber(it) } catch (_: Exception) { it } == normalizedNumber }
 
-                    arrayOf(
-                        callDraggable, callDraggableBackground, callDraggableVertical,
-                        callLeftArrow, callRightArrow,
-                        callUpArrow, callDownArrow
-                    ).forEach {
-                        it.beGone()
-                    }
+                        applicationContext.getContactFromAddress(number) { realContact ->
+                            val isUnknown = realContact == null
 
+                            runOnUiThread {
+                                binding.apply {
+                                    ongoingCallHolder.beGone()
+                                    incomingCallHolder.beVisible()
+                                    callStatusLabel.text = getString(R.string.is_calling)
+                                    RxAnimation.from(binding.callStatusLabel)
+                                        .shake()
+                                        .subscribe()
 
-                    
-                    callDecline.beVisible()
-                    callDecline.setOnClickListener {
-                        endCall()
-                    }
+                                    arrayOf(
+                                        callDraggable, callDraggableBackground, callDraggableVertical,
+                                        callLeftArrow, callRightArrow,
+                                        callUpArrow, callDownArrow
+                                    ).forEach {
+                                        it.beGone()
+                                    }
 
-                    callAccept.beVisible()
-                    callAccept.setOnClickListener {
-                        acceptCall()
-                    }
+                                    if (!isStealth && !isUnknown) {
+                                        callDecline.beVisible()
+                                        callDecline.setOnClickListener {
+                                            endCall()
+                                        }
 
-                    callAcceptAndDecline.apply {
-                        beVisible()
-                        setText(R.string.answer_end_other_call)
-                        setOnClickListener {
-                            acceptCall()
-                            callActive?.disconnect()
+                                        callAccept.beVisible()
+                                        callAccept.setOnClickListener {
+                                            acceptCall()
+                                        }
+
+                                        callAcceptAndDecline.apply {
+                                            beVisible()
+                                            setText(R.string.answer_end_other_call)
+                                            setOnClickListener {
+                                                acceptCall()
+                                                callActive?.disconnect()
+                                            }
+                                        }
+                                    } else {
+                                        callDecline.beGone()
+                                        callAccept.beGone()
+                                        callAcceptAndDecline.beGone()
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        runOnUiThread {
+                            binding.apply {
+                                callDecline.beVisible()
+                                callDecline.setOnClickListener { endCall() }
+                                callAccept.beVisible()
+                                callAccept.setOnClickListener { acceptCall() }
+                                callAcceptAndDecline.apply {
+                                    beVisible()
+                                    setText(R.string.answer_end_other_call)
+                                    setOnClickListener {
+                                        acceptCall()
+                                        callActive?.disconnect()
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1539,6 +1576,37 @@ class CallActivity : SimpleActivity() {
                 val avatarRound = if (!isConference) contact.photoUri else ""
                 updateOtherPersonsInfo(avatarRound, isConference)
                 checkCalledSIMCard()
+
+                try {
+                    val number = callContact.number.ifEmpty { "" }
+                    val normalizedNumber = try { PhoneNumberUtils.normalizeNumber(number) } catch (_: Exception) { number }
+                    val stealthList = StealthBlockedNumbersRepository.getStealthBlockedNumbers(applicationContext)
+                    val isStealth = stealthList.any { try { PhoneNumberUtils.normalizeNumber(it) } catch (_: Exception) { it } == normalizedNumber }
+
+                    // Check whether the number exists in contacts; if not (unknown) or stealth, hide accept UI
+                    applicationContext.getContactFromAddress(number) { contact ->
+                        val isUnknownContact = contact == null
+                        if (isStealth || isUnknownContact) {
+                            runOnUiThread {
+                                binding.apply {
+                                    callAccept.beGone()
+                                    callDecline.beGone()
+                                    callAcceptAndDecline.beGone()
+
+                                    // Hide swipe/drag accept controls as well
+                                    callDraggable.beGone()
+                                    callDraggableBackground.beGone()
+                                    callDraggableVertical.beGone()
+                                    callLeftArrow.beGone()
+                                    callRightArrow.beGone()
+                                    callUpArrow.beGone()
+                                    callDownArrow.beGone()
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                }
             }
         }
     }

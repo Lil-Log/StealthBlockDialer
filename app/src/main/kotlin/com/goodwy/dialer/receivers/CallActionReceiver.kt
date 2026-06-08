@@ -4,6 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.goodwy.dialer.activities.CallActivity
+import android.telephony.PhoneNumberUtils
+import android.net.Uri
+import com.goodwy.dialer.helpers.StealthBlockedNumbersRepository
 import com.goodwy.dialer.extensions.audioManager
 import com.goodwy.dialer.extensions.config
 import com.goodwy.dialer.helpers.ACCEPT_CALL
@@ -18,6 +21,18 @@ class CallActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             DECLINE_CALL -> CallManager.reject()
             ACCEPT_CALL -> {
+                try {
+                    val primaryCall = CallManager.getPrimaryCall()
+                    val handle = primaryCall?.details?.handle?.toString()
+                    if (handle != null && handle.startsWith("tel:")) {
+                        val number = Uri.decode(handle).substringAfter("tel:")
+                        val normalized = try { PhoneNumberUtils.normalizeNumber(number) } catch (_: Exception) { number }
+                        val isStealth = StealthBlockedNumbersRepository.getStealthBlockedNumbers(context).any { try { PhoneNumberUtils.normalizeNumber(it) } catch (_: Exception) { it } == normalized }
+                        if (isStealth) return
+                    }
+                } catch (_: Exception) {
+                }
+
                 if (!context.config.keepCallsInPopUp) context.startActivity(CallActivity.getStartIntent(context))
                 CallManager.accept()
                 if (context.config.keepCallsInPopUp && context.config.turnOnSpeakerInPopup) {
